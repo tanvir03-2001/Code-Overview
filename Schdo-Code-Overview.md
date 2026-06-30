@@ -1,6 +1,6 @@
 # Schdo (SchdoSocial) — Code Overview
 
-[← সূচিপত্র](./README.md)
+[← Table of Contents](./README.md)
 
 > **উদ্দেশ্য:** SchdoSocial প্রজেক্টের পুরো আর্কিটেকচার, পেজ, ফাংশন, client/server কোডের মূল অংশ এবং তাদের মধ্যে সম্পর্ক ব্যাখ্যা করে। Git repo শেয়ার না করলেও এই ফাইল দিয়ে প্রজেক্ট বুঝতে সাহায্য করবে।
 
