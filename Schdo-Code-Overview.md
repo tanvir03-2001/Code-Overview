@@ -2,33 +2,33 @@
 
 [← Table of Contents](./README.md)
 
-> **উদ্দেশ্য:** SchdoSocial প্রজেক্টের পুরো আর্কিটেকচার, পেজ, ফাংশন, client/server কোডের মূল অংশ এবং তাদের মধ্যে সম্পর্ক ব্যাখ্যা করে। Git repo শেয়ার না করলেও এই ফাইল দিয়ে প্রজেক্ট বুঝতে সাহায্য করবে।
+> **Purpose:** This document explains the full architecture of the SchdoSocial project — pages, functions, core client/server code, and how they connect. Use this file to understand the project without sharing the git repository.
 
 ---
 
-## ১. প্রজেক্ট কাঠামো (High-Level)
+## 1. Project Structure (High-Level)
 
 ```
 Schdo/
-├── Client/          → Next.js 16 ফ্রন্টএন্ড (React 19, port 3000)
+├── Client/          → Next.js 16 frontend (React 19, port 3000)
 └── Server/          → Express 5 API (port 5000) + Worker process
 ```
 
-| অংশ | টেকনোলজি | পোর্ট (লোকাল) |
-|-----|----------|---------------|
+| Layer | Technology | Port (local) |
+|-------|------------|--------------|
 | **Client** | Next.js App Router, Tailwind CSS 4, Radix UI, TanStack Query | `localhost:3000` |
 | **Server** | Express 5, Mongoose 9, Agenda job queue, Zod | `localhost:5000` |
 | **Worker** | Standalone Agenda worker (`npm run dev:worker`) | — |
 | **Database** | MongoDB | — |
 | **Integrations** | Facebook Graph API, TikTok API, Cloudinary, Google OAuth | — |
 
-> **প্রজেক্টের উদ্দেশ্য:** Facebook Page ও TikTok account-এ social media post schedule, publish ও manage করার SaaS platform (**SchdoSocial**)।
+> **Project goal:** SaaS platform (**SchdoSocial**) to schedule, publish, and manage social media posts on Facebook Pages and TikTok accounts.
 
-> **নোট:** `Client/` ও `Server/` আলাদা git repository।
+> **Note:** `Client/` and `Server/` are separate git repositories.
 
 ---
 
-## ২. Client ↔ Server কিভাবে যুক্ত
+## 2. How Client ↔ Server Connect
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -52,16 +52,16 @@ Schdo/
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**মূল নিয়ম:**
-- Client সরাসরি Express API-তে কল করে
+**Key rules:**
+- Client calls the Express API directly
 - Base URL: `NEXT_PUBLIC_API_URL` → `http://localhost:5000/api/v1`
-- Auth: `httpOnly` cookie — `apiFetch()` 401-এ auto refresh
+- Auth: `httpOnly` cookies — `apiFetch()` auto-refreshes on 401
 - Real-time: SSE streams (notifications, admin monitoring)
 - Publishing: Server-side Agenda job queue + poll worker
 
 ---
 
-## ৩. Client — ফোল্ডার ও দায়িত্ব
+## 3. Client — Folders and Responsibilities
 
 ```
 Client/src/
@@ -81,7 +81,7 @@ Client/src/
 │   ├── layout/             # Sidebar, header, page selector
 │   └── ui/                 # Radix-based design system
 ├── lib/
-│   ├── api-client.ts       # মূল HTTP client
+│   ├── api-client.ts       # Core HTTP client
 │   ├── auth.ts, posts.ts, facebook-pages.ts, tiktok-accounts.ts
 │   ├── scheduling-models.ts, notifications.ts, admin.ts
 │   └── ... (35 modules)
@@ -97,7 +97,7 @@ Client/src/
 
 ---
 
-## ৪. Route Groups ও Guard Chain
+## 4. Route Groups and Guard Chain
 
 | Group | Layout | Guards |
 |-------|--------|--------|
@@ -122,10 +122,10 @@ Client/src/
 
 ---
 
-## ৫. Public & Auth পেজ
+## 5. Public & Auth Pages
 
-| URL | ফাইল | কাজ |
-|-----|------|-----|
+| URL | File | Purpose |
+|-----|------|---------|
 | `/` | `app/page.tsx` | Landing/marketing page |
 | `/privacy` | `app/privacy/page.tsx` | Privacy policy |
 | `/terms` | `app/terms/page.tsx` | Terms of service |
@@ -139,10 +139,10 @@ Client/src/
 
 ---
 
-## ৬. Dashboard পেজ (User)
+## 6. Dashboard Pages (User)
 
-| URL | কাজ |
-|-----|-----|
+| URL | Purpose |
+|-----|---------|
 | `/onboarding` | First-time setup wizard |
 | `/dashboard` | Overview / analytics home |
 | `/dashboard/posts` | Post list |
@@ -161,10 +161,10 @@ Client/src/
 
 ---
 
-## ৭. Admin পেজ
+## 7. Admin Pages
 
-| URL | কাজ |
-|-----|-----|
+| URL | Purpose |
+|-----|---------|
 | `/admin` | Admin overview |
 | `/admin/analytics` | Platform analytics |
 | `/admin/server` | Server capacity metrics (SSE) |
@@ -180,15 +180,15 @@ Client/src/
 | `/admin/audit` | Admin audit log |
 | `/admin/settings` | System settings |
 
-**Admin সুরক্ষা:** `AdminGuard` — role `admin` বা `super_user` required।
+**Admin protection:** `AdminGuard` — requires role `admin` or `super_user`.
 
 ---
 
-## ৮. Client কোড — মূল অংশ
+## 8. Client Code — Core Parts
 
-### ৮.১ API Client (`lib/api-client.ts`)
+### 8.1 API Client (`lib/api-client.ts`)
 
-সব HTTP call-এর কেন্দ্রবিন্দু:
+Central hub for all HTTP calls:
 
 ```typescript
 // lib/api-client.ts
@@ -197,7 +197,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost
 export const apiFetch = async <T>(path: string, options: RequestInit = {}, retry = true): Promise<T> => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    credentials: "include",  // JWT cookie পাঠায়
+    credentials: "include",  // sends JWT cookies
   });
   // 401 → refreshSession() → retry once
   return body.data;
@@ -207,8 +207,8 @@ export const apiUpload = ...       // Multipart upload with progress
 export const apiUploadWithProgress = ...
 ```
 
-| Client Module | Server Endpoint | কাজ |
-|--------------|-----------------|-----|
+| Client Module | Server Endpoint | Purpose |
+|--------------|-----------------|---------|
 | `lib/auth.ts` | `/auth/*` | Login, register, OAuth, sessions |
 | `lib/posts.ts` | `/posts/*` | Post CRUD, analytics, bulk delete |
 | `lib/facebook-pages.ts` | `/facebook-pages/*` | FB page connect/manage |
@@ -220,17 +220,17 @@ export const apiUploadWithProgress = ...
 
 ---
 
-### ৮.২ Auth Provider (`providers/auth-provider.tsx`)
+### 8.2 Auth Provider (`providers/auth-provider.tsx`)
 
 ```typescript
-// Mount-এ GET /auth/me → user state set
+// On mount: GET /auth/me → set user state
 // Login/register/OAuth → cookies set → refresh user
 // logout → POST /auth/logout → clear state
 ```
 
 ---
 
-### ৮.৩ Notifications Provider (`providers/notifications-provider.tsx`)
+### 8.3 Notifications Provider (`providers/notifications-provider.tsx`)
 
 ```typescript
 // SSE stream: GET /notifications/stream
@@ -240,9 +240,9 @@ export const apiUploadWithProgress = ...
 
 ---
 
-### ৮.৪ Post Form (`components/dashboard/post-form/post-form.tsx`)
+### 8.4 Post Form (`components/dashboard/post-form/post-form.tsx`)
 
-মূল post creation/editing UI:
+Main post creation/editing UI:
 - Text, image, video, reel, story support
 - Facebook page selector
 - Schedule date/time picker
@@ -258,9 +258,9 @@ post-form.tsx → lib/posts.ts → POST /api/v1/posts
 
 ---
 
-### ৮.৫ Bulk Upload Queue (`providers/bulk-upload-queue-provider.tsx`)
+### 8.5 Bulk Upload Queue (`providers/bulk-upload-queue-provider.tsx`)
 
-Background bulk post upload — multiple posts একসাথে upload:
+Background bulk post upload — multiple posts uploaded together:
 ```
 BulkUploadQueueProvider → sequential upload → progress tracking
 → GET /posts/upload-progress/:token
@@ -268,7 +268,7 @@ BulkUploadQueueProvider → sequential upload → progress tracking
 
 ---
 
-## ৯. Server — ফোল্ডার ও দায়িত্ব
+## 9. Server — Folders and Responsibilities
 
 ```
 Server/src/
@@ -276,7 +276,7 @@ Server/src/
 ├── server.ts               # Bootstrap: DB, queue, scheduler worker
 ├── worker.ts               # Standalone Agenda worker
 ├── routes/
-│   └── v1.routes.ts        # সব route mount
+│   └── v1.routes.ts        # All route mounts
 ├── config/
 │   ├── env.ts              # Centralized env
 │   ├── database.ts         # MongoDB
@@ -319,9 +319,9 @@ features/posts/
 
 ---
 
-## ১০. Server কোড — মূল অংশ
+## 10. Server Code — Core Parts
 
-### ১০.১ Route Mounting (`routes/v1.routes.ts`)
+### 10.1 Route Mounting (`routes/v1.routes.ts`)
 
 ```typescript
 // routes/v1.routes.ts
@@ -340,7 +340,7 @@ router.use("/admin", adminRoutes);
 
 ---
 
-### ১০.২ Server Bootstrap (`server.ts`)
+### 10.2 Server Bootstrap (`server.ts`)
 
 ```typescript
 // server.ts
@@ -354,7 +354,7 @@ router.use("/admin", adminRoutes);
 
 ---
 
-### ১০.৩ Scheduled Post Publishing
+### 10.3 Scheduled Post Publishing
 
 ```
 User schedules post → POST /api/v1/posts (status: scheduled)
@@ -367,7 +367,7 @@ User schedules post → POST /api/v1/posts (status: scheduled)
 
 ---
 
-### ১০.৪ Zod Validation Middleware
+### 10.4 Zod Validation Middleware
 
 ```typescript
 // middleware/validate.ts
@@ -384,7 +384,7 @@ export const validate = (schema: ZodType, source: "body" | "query" | "params") =
 
 ---
 
-## ১১. API Endpoint সংক্ষিপ্ত তালিকা
+## 11. API Endpoint Summary
 
 **Base:** `/api/v1`
 
@@ -460,7 +460,7 @@ export const validate = (schema: ZodType, source: "body" | "query" | "params") =
 
 ---
 
-## ১২. Feature Module ম্যাপিং
+## 12. Feature Module Mapping
 
 | Feature | Client | Server | External |
 |---------|--------|--------|----------|
@@ -477,43 +477,43 @@ export const validate = (schema: ZodType, source: "body" | "query" | "params") =
 
 ---
 
-## ১৩. Auth Flow
+## 13. Auth Flow
 
 ```
-১. Register
+1. Register
    Client: register/page.tsx → auth.register()
    Server: POST /auth/register → cookies set
 
-২. Login
+2. Login
    Client: login/page.tsx → auth.login()
    Server: POST /auth/login → accessToken + refreshToken cookies
    Client: AuthProvider → GET /auth/me
 
-৩. OAuth (Google/Facebook)
+3. OAuth (Google/Facebook)
    Client: OAuth button → redirect /auth/google
    Server: Passport → callback → cookies → redirect /auth/callback
    Client: auth/callback → getMe()
 
-৪. Onboarding
+4. Onboarding
    Client: OnboardingGuard → /onboarding if incomplete
    Server: POST /auth/complete-onboarding
 
-৫. Terms
+5. Terms
    Client: TermsGuard → /accept-terms if not accepted
    Server: POST /auth/accept-terms
 
-৬. Token Refresh (401)
+6. Token Refresh (401)
    Client: apiFetch() → POST /auth/refresh → retry
    Server: new accessToken cookie
 
-৭. Admin Access
+7. Admin Access
    Client: AdminGuard → role admin/super_user check
    Server: authorize middleware on /admin routes
 ```
 
 ---
 
-## ১৪. Post Publish Flow
+## 14. Post Publish Flow
 
 ```
 Create Post                Schedule                  Publish
@@ -536,9 +536,9 @@ post-form.tsx       →      POST /posts        →      Agenda job queued
 
 ---
 
-## ১৫. MongoDB Models
+## 15. MongoDB Models
 
-| Model | উদ্দেশ্য |
+| Model | Purpose |
 |-------|---------|
 | `User` | Accounts, roles (`user`, `admin`, `super_user`) |
 | `AuthToken` | Refresh token sessions |
@@ -554,7 +554,7 @@ post-form.tsx       →      POST /posts        →      Agenda job queued
 
 ---
 
-## ১৬. Environment Variables
+## 16. Environment Variables
 
 ### Client (`.env.local`)
 ```
@@ -581,7 +581,7 @@ SUPER_ADMIN_PASSWORD=...
 
 ---
 
-## ১৭. চালানোর নিয়ম (Local)
+## 17. How to Run Locally
 
 ```bash
 # Terminal 1 — Server
@@ -601,11 +601,11 @@ npm run dev          # → http://localhost:3000
 
 ---
 
-## ১৮. গুরুত্বপূর্ণ ফাইল রেফারেন্স
+## 18. Key File Reference
 
-| ফাইল | ভূমিকা |
-|------|--------|
-| `Client/src/lib/api-client.ts` | মূল HTTP client, token refresh, upload |
+| File | Role |
+|------|------|
+| `Client/src/lib/api-client.ts` | Core HTTP client, token refresh, upload |
 | `Client/src/providers/auth-provider.tsx` | Auth state bootstrap |
 | `Client/src/providers/notifications-provider.tsx` | SSE notification stream |
 | `Client/src/components/dashboard/post-form/post-form.tsx` | Post create/edit UI |
@@ -623,12 +623,12 @@ npm run dev          # → http://localhost:3000
 
 ---
 
-## ১৯. তিন প্রজেক্টের তুলনা
+## 19. Three-Project Comparison
 
-| বিষয় | SplasBD | Panzo | Schdo |
+| Topic | SplasBD | Panzo | Schdo |
 |-------|---------|-------|-------|
 | **Domain** | E-commerce | E-commerce (Fashion) | Social Media Scheduling |
-| **Admin** | Next.js embedded | আলাদা Vite app | Next.js route group |
+| **Admin** | Next.js embedded | Separate Vite app | Next.js route group |
 | **API prefix** | `/api` | `/api/v1` | `/api/v1` |
 | **Auth** | JWT cookies | JWT cookies | JWT cookies + OAuth |
 | **Job Queue** | — | — | Agenda + poll worker |
@@ -639,12 +639,169 @@ npm run dev          # → http://localhost:3000
 
 ---
 
-## ২০. আর্কিটেকচার সিদ্ধান্ত
+## 20. Code Examples
+
+Real code from the project — shows TypeScript patterns used across client and server.
+
+### Example 1 — Typed API fetch with auto refresh (`Client/src/lib/api-client.ts`)
+
+```typescript
+export const apiFetch = async <T>(
+  path: string,
+  options: RequestInit = {},
+  retry = true,
+): Promise<T> => {
+  const headers = new Headers(options.headers);
+
+  if (!headers.has("Content-Type") && options.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+
+  const body = (await response.json()) as ApiSuccessResponse<T> | ApiErrorResponse;
+
+  if (response.status === 401 && !body.success) {
+    const retried = await handleUnauthorized(path, body, retry, () =>
+      apiFetch<T>(path, options, false),
+    );
+
+    if (retried !== null) {
+      return retried;
+    }
+  }
+
+  if (!response.ok || !body.success) {
+    throw new ApiError(
+      body.success ? "Request failed" : parseErrorMessage(body),
+      response.status,
+      body.success ? undefined : body.errors,
+    );
+  }
+
+  return body.data;
+};
+```
+
+### Example 2 — Route guard with loading state (`Client/src/components/auth/auth-guard.tsx`)
+
+```typescript
+export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading) {
+    return <AuthScreenSkeleton />;
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+```
+
+### Example 3 — Zod validation middleware (`Server/src/middleware/validate.ts`)
+
+```typescript
+export const validate =
+  (schema: ZodType, source: RequestSource = "body") =>
+  (req: Request, _res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req[source]);
+
+    if (!result.success) {
+      return next(
+        new AppError(
+          "Validation failed",
+          StatusCodes.BAD_REQUEST,
+          result.error.flatten(),
+        ),
+      );
+    }
+
+    if (source === "body") {
+      req.body = result.data;
+    } else if (source === "query") {
+      req.validatedQuery = result.data;
+    } else {
+      req.validatedParams = result.data;
+    }
+
+    next();
+  };
+```
+
+### Example 4 — Scheduled post claim and publish (`Server/src/features/posts/posts.scheduler.service.ts`)
+
+```typescript
+const claimDuePosts = async (
+  limit: number,
+  now: Date,
+  claimTtlMs: number,
+): Promise<IPost[]> => {
+  const staleBefore = new Date(now.getTime() - claimTtlMs);
+  const filter = buildDueClaimFilter(now, staleBefore);
+
+  const claims = await Promise.all(
+    Array.from({ length: limit }, () =>
+      Post.findOneAndUpdate(
+        filter,
+        { $set: { publishClaimedAt: now, publishStartedAt: now } },
+        { sort: { scheduledAt: 1, createdAt: 1 }, new: true },
+      ),
+    ),
+  );
+
+  return claims.filter((post) => post !== null);
+};
+
+const getConnectedPage = async (
+  post: IPost,
+  pageCache: Map<string, IFacebookPage>,
+): Promise<IFacebookPage> => {
+  const cacheKey = post.facebookPageId.toString();
+  const cached = pageCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const page = await FacebookPage.findOne({
+    _id: post.facebookPageId,
+    userId: post.userId,
+    connected: true,
+  }).select("+pageAccessToken");
+
+  if (!page?.pageAccessToken) {
+    throw new Error(
+      "Connected Facebook page not found or missing access token.",
+    );
+  }
+
+  pageCache.set(cacheKey, page);
+  return page;
+};
+```
+
+---
+
+## 21. Architecture Decisions
 
 1. **SaaS platform** — multi-user Facebook/TikTok post scheduling
 2. **Agenda job queue** — reliable timed post publishing
 3. **Poll worker fallback** — high-concurrency scheduled post processing
-4. **SSE real-time** — notifications ও admin monitoring
+4. **SSE real-time** — notifications and admin monitoring
 5. **Guard chain** — Auth → Terms → Onboarding sequential checks
 6. **Cloudinary pools** — media quota management per user
 7. **Meta compliance** — data-deletion/deauthorize callbacks
@@ -654,4 +811,4 @@ npm run dev          # → http://localhost:3000
 
 ---
 
-*শেষ আপডেট: জুলাই ২০২৬ | SchdoSocial — Social Media Scheduling Platform*
+*Last updated: July 2026 | SchdoSocial — Social Media Scheduling Platform*

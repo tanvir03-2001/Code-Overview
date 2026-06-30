@@ -2,31 +2,31 @@
 
 [← Table of Contents](./README.md)
 
-> **উদ্দেশ্য:** এই ডকুমেন্টটি SplasBD প্রজেক্টের পুরো আর্কিটেকচার, পেজ, ফাংশন, ক্লায়েন্ট ও সার্ভার কোডের মূল অংশ এবং তাদের মধ্যে সম্পর্ক ব্যাখ্যা করে। Git repo শেয়ার না করলেও এই ফাইল দিয়ে প্রজেক্ট বুঝতে সাহায্য করবে।
+> **Purpose:** This document explains the full architecture of the SplasBD project — pages, functions, core client and server code, and how they connect. Use this file to understand the project without sharing the git repository.
 
 ---
 
-## ১. প্রজেক্ট কাঠামো (High-Level)
+## 1. Project Structure (High-Level)
 
 ```
 SplasBD/
-├── client/          → Next.js 16 ফ্রন্টএন্ড (React 19, TypeScript)
+├── client/          → Next.js 16 frontend (React 19, TypeScript)
 ├── server/          → Express 5 REST API (TypeScript, MongoDB)
-└── script/          → ডাটাবেস seed স্ক্রিপ্ট (ঐচ্ছিক)
+└── script/          → Database seed script (optional)
 ```
 
-| অংশ | টেকনোলজি | পোর্ট (লোকাল) |
-|-----|----------|---------------|
+| Layer | Technology | Port (local) |
+|-------|------------|--------------|
 | **Client** | Next.js App Router, Tailwind CSS, Radix UI | `localhost:3000` |
 | **Server** | Express 5, Mongoose, JWT, Passport Google OAuth | `localhost:5000` |
 | **Database** | MongoDB | — |
 | **Deploy** | Vercel (client + serverless API) | — |
 
-> **নোট:** `client/` ও `server/` আলাদা git repository — দুটোই আলাদাভাবে deploy হয়।
+> **Note:** `client/` and `server/` are separate git repositories — each is deployed independently.
 
 ---
 
-## ২. Client ↔ Server কিভাবে যুক্ত
+## 2. How Client ↔ Server Connect
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -45,27 +45,27 @@ SplasBD/
 ┌────────────────────────────────────────────────────▼──────────────┐
 │  SERVER — Express (SplasBD/server/)                              │
 │  app.ts → /api/* routes → Controller → Model → MongoDB          │
-│  + Cloudinary (ছবি) + Nodemailer (ইমেইল) + Steadfast (কুরিয়ার) │
+│  + Cloudinary (images) + Nodemailer (email) + Steadfast (courier)│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**মূল নিয়ম:**
-- Client সরাসরি Express API-তে কল করে — Next.js-এর নিজস্ব API route নেই
-- Base URL: `NEXT_PUBLIC_API_URL` অথবা `http://localhost:5000/api`
-- Auth: `httpOnly` cookie (`accessToken`, `refreshToken`) — `credentials: 'include'` দিয়ে পাঠানো হয়
-- Guest user-ও কার্ট ও অর্ডার করতে পারে (session cookie)
+**Key rules:**
+- Client calls the Express API directly — no Next.js API routes
+- Base URL: `NEXT_PUBLIC_API_URL` or `http://localhost:5000/api`
+- Auth: `httpOnly` cookies (`accessToken`, `refreshToken`) sent via `credentials: 'include'`
+- Guest users can also use cart and place orders (session cookie)
 
 ---
 
-## ৩. Client — ফোল্ডার ও দায়িত্ব
+## 3. Client — Folders and Responsibilities
 
 ```
 client/
-├── app/                    # সব পেজ (Next.js App Router)
-│   ├── (public)/           # স্টোরফ্রন্ট পেজ (URL-এ দেখা যায় না)
-│   ├── admin/              # অ্যাডমিন প্যানেল
-│   ├── layout.tsx          # রুট লেআউট (UserProvider, SEO)
-│   ├── sitemap.ts          # ডায়নামিক sitemap
+├── app/                    # All pages (Next.js App Router)
+│   ├── (public)/           # Storefront pages (not visible in URL)
+│   ├── admin/              # Admin panel
+│   ├── layout.tsx          # Root layout (UserProvider, SEO)
+│   ├── sitemap.ts          # Dynamic sitemap
 │   └── robots.ts           # robots.txt
 ├── components/
 │   ├── common/             # Navbar, ProductCard, Cart, Footer...
@@ -73,70 +73,70 @@ client/
 │   ├── Loading/            # Skeleton loaders
 │   └── ui/                 # Button, Dialog, Table (shadcn-style)
 ├── contexts/
-│   └── UserContext.tsx     # গ্লোবাল auth state
+│   └── UserContext.tsx     # Global auth state
 └── lib/
-    ├── api.ts              # মূল HTTP client + cart/category API
+    ├── api.ts              # Core HTTP client + cart/category API
     ├── authApi.ts          # Login, register, profile
-    ├── orderApi.ts         # Order + Steadfast
+    ├── orderApi.ts         # Orders + Steadfast
     ├── adminApi.ts         # Dashboard analytics
-    └── hooks/              # useInfiniteScroll ইত্যাদি
+    └── hooks/              # useInfiniteScroll, etc.
 ```
 
 ---
 
-## ৪. Public পেজ — URL ও ফাইল ম্যাপিং
+## 4. Public Pages — URL and File Mapping
 
-| URL | ফাইল | কাজ |
-|-----|------|-----|
-| `/` | `app/(public)/page.tsx` | হোম — Hero, Category, Promo, Products |
-| `/products` | `app/(public)/products/page.tsx` | প্রোডাক্ট লিস্ট + ফিল্টার |
-| `/products/[id]` | `app/(public)/products/[id]/page.tsx` | প্রোডাক্ট ডিটেইল |
-| `/cart` | `app/(public)/cart/page.tsx` | শপিং কার্ট |
-| `/checkout` | `app/(public)/checkout/page.tsx` | চেকআউট (বাংলাদেশি ঠিকানা) |
-| `/order-confirmation/[id]` | `app/(public)/order-confirmation/[id]/page.tsx` | অর্ডার কনফার্মেশন |
-| `/profile` | `app/(public)/profile/page.tsx` | প্রোফাইল, অর্ডার, রিভিউ |
-| `/login`, `/register` | `app/(public)/login|register/page.tsx` | লগইন/রেজিস্ট্রেশন |
+| URL | File | Purpose |
+|-----|------|---------|
+| `/` | `app/(public)/page.tsx` | Home — Hero, Category, Promo, Products |
+| `/products` | `app/(public)/products/page.tsx` | Product list + filters |
+| `/products/[id]` | `app/(public)/products/[id]/page.tsx` | Product detail |
+| `/cart` | `app/(public)/cart/page.tsx` | Shopping cart |
+| `/checkout` | `app/(public)/checkout/page.tsx` | Checkout (Bangladesh address) |
+| `/order-confirmation/[id]` | `app/(public)/order-confirmation/[id]/page.tsx` | Order confirmation |
+| `/profile` | `app/(public)/profile/page.tsx` | Profile, orders, reviews |
+| `/login`, `/register` | `app/(public)/login|register/page.tsx` | Login / registration |
 | `/auth/callback` | `app/(public)/auth/callback/page.tsx` | Google OAuth callback |
-| `/guest-orders` | `app/(public)/guest-orders/page.tsx` | Guest অর্ডার খোঁজা |
+| `/guest-orders` | `app/(public)/guest-orders/page.tsx` | Guest order lookup |
 
 ---
 
-## ৫. Admin পেজ — URL ও ফাইল ম্যাপিং
+## 5. Admin Pages — URL and File Mapping
 
-| URL | কাজ |
-|-----|-----|
-| `/admin` | ড্যাশবোর্ড (stats) |
-| `/admin/products`, `/add`, `/[id]/edit` | প্রোডাক্ট CRUD |
-| `/admin/orders`, `/orders/[id]` | অর্ডার ম্যানেজমেন্ট + Steadfast |
-| `/admin/users`, `/users/roles` | ইউজার ও রোল |
-| `/admin/banners` | হোমপেজ ব্যানার |
-| `/admin/categories` | ক্যাটাগরি/সাবক্যাটাগরি |
-| `/admin/promo-codes` | প্রোমো কোড |
-| `/admin/shipping` | ঢাকা/ঢাকার বাইরে ডেলিভারি চার্জ |
-| `/admin/analytics` | রেভিনিউ/প্রফিট অ্যানালিটিক্স |
-| `/admin/settings` | সাইট সেটিংস |
+| URL | Purpose |
+|-----|---------|
+| `/admin` | Dashboard (stats) |
+| `/admin/products`, `/add`, `/[id]/edit` | Product CRUD |
+| `/admin/orders`, `/orders/[id]` | Order management + Steadfast |
+| `/admin/users`, `/users/roles` | Users and roles |
+| `/admin/banners` | Homepage banners |
+| `/admin/categories` | Category / subcategory |
+| `/admin/promo-codes` | Promo codes |
+| `/admin/shipping` | Dhaka / outside Dhaka delivery charges |
+| `/admin/analytics` | Revenue / profit analytics |
+| `/admin/settings` | Site settings |
 
-**Admin সুরক্ষা:** `app/admin/layout.tsx` — পেজ লোডে `authApi.getProfile()` চেক করে; `role === ADMIN` না হলে login-এ redirect।
+**Admin protection:** `app/admin/layout.tsx` — on page load calls `authApi.getProfile()`; redirects to login if `role !== ADMIN`.
 
 ---
 
-## ৬. Client কোড — মূল অংশ
+## 6. Client Code — Core Parts
 
-### ৬.১ হোম পেজ (`app/(public)/page.tsx`)
+### 6.1 Home Page (`app/(public)/page.tsx`)
 
-হোম পেজ বিভিন্ন কম্পোনেন্ট একসাথে জোড়ে:
+The home page composes several components:
 
 ```tsx
-// app/(public)/page.tsx — মূল সেকশন
-<LeftSidebar />              // ক্যাটাগরি সাইডবার (ডেস্কটপ)
-<HeroCarousel />             // ব্যানার ক্যারোসেল → GET /api/banners
-<CategoryShowcase />         // ক্যাটাগরি → GET /api/categories
-<DynamicPromotionalSections /> // প্রোমো সেকশন → GET /api/promotional-sections
-<AllProducts />              // সব প্রোডাক্ট → GET /api/products
-<TrustSection />             // ডেলিভারি/ওয়ারেন্টি ট্রাস্ট ব্লক
+// app/(public)/page.tsx — main sections
+<LeftSidebar />              // Category sidebar (desktop)
+<HeroCarousel />             // Banner carousel → GET /api/banners
+<CategoryShowcase />         // Categories → GET /api/categories
+<DynamicPromotionalSections /> // Promo sections → GET /api/promotional-sections
+<AllProducts />              // All products → GET /api/products
+<TrustSection />             // Delivery / warranty trust block
 ```
 
-| কম্পোনেন্ট | API Endpoint | Server ফাইল |
+| Component | API Endpoint | Server File |
 |-----------|--------------|-------------|
 | `HeroCarousel` | `GET /api/banners` | `features/banner/banner.route.ts` |
 | `CategoryShowcase` | `GET /api/categories` | `features/category/category.route.ts` |
@@ -145,32 +145,32 @@ client/
 
 ---
 
-### ৬.২ মূল API Client (`lib/api.ts`)
+### 6.2 Core API Client (`lib/api.ts`)
 
-সব API কলের কেন্দ্রবিন্দু। Token expire হলে auto refresh করে:
+Central hub for all API calls. Auto-refreshes token on expiry:
 
 ```typescript
 // lib/api.ts
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  // GET request → cache.ts দিয়ে cache
+  // GET request → cache via cache.ts
   // 401 error → refreshAccessToken() → retry
-  // fetch(..., { credentials: 'include' }) — cookie পাঠায়
+  // fetch(..., { credentials: 'include' }) — sends cookies
 }
 ```
 
-**সংযুক্ত Server:** যেকোনো `/api/*` route — `server/src/app.ts`-এ mount করা।
+**Connected Server:** Any `/api/*` route — mounted in `server/src/app.ts`.
 
 ---
 
-### ৬.৩ Auth API (`lib/authApi.ts`)
+### 6.3 Auth API (`lib/authApi.ts`)
 
 ```typescript
 // lib/authApi.ts
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// প্রতিটি request-এ credentials: 'include' — JWT cookie পাঠায়
+// Every request uses credentials: 'include' — sends JWT cookies
 authApi.login({ email, password })      → POST /api/auth/login
 authApi.register({ name, email, password }) → POST /api/auth/register
 authApi.getProfile()                    → GET  /api/auth/profile
@@ -178,32 +178,32 @@ authApi.refreshToken()                  → POST /api/auth/refresh-token
 authApi.logout()                        → POST /api/auth/logout
 ```
 
-**সংযুক্ত Server:** `server/src/features/auth/auth.route.ts` → `auth.controller.ts`
+**Connected Server:** `server/src/features/auth/auth.route.ts` → `auth.controller.ts`
 
 ---
 
-### ৬.৪ User Context (`contexts/UserContext.tsx`)
+### 6.4 User Context (`contexts/UserContext.tsx`)
 
-গ্লোবাল auth state — সব পেজে `UserProvider` দিয়ে wrap:
+Global auth state — all pages wrapped with `UserProvider`:
 
 ```typescript
 // contexts/UserContext.tsx
 export function UserProvider({ children }) {
-  // Mount-এ authApi.getProfile() কল
-  // Login-এর পর guest order link: orderApi.linkGuestOrders()
-  // logout → cookie clear + localStorage clear
+  // On mount: calls authApi.getProfile()
+  // After login: links guest orders via orderApi.linkGuestOrders()
+  // logout → clears cookies + localStorage
 }
 ```
 
-| Client ফাংশন | Server Endpoint | ব্যাখ্যা |
-|-------------|-----------------|---------|
-| `refreshUser()` | `GET /api/auth/profile` | ইউজার ডেটা লোড |
-| `logout()` | `POST /api/auth/logout` | সেশন শেষ |
-| Guest order link | `POST /api/orders/link-guest-orders` | Login-এর পর guest অর্ডার যুক্ত |
+| Client Function | Server Endpoint | Description |
+|----------------|-----------------|-------------|
+| `refreshUser()` | `GET /api/auth/profile` | Load user data |
+| `logout()` | `POST /api/auth/logout` | End session |
+| Guest order link | `POST /api/orders/link-guest-orders` | Link guest orders after login |
 
 ---
 
-### ৬.৫ Order API (`lib/orderApi.ts`)
+### 6.5 Order API (`lib/orderApi.ts`)
 
 ```typescript
 // lib/orderApi.ts
@@ -213,15 +213,15 @@ orderApi.linkGuestOrders(orderIds)   → POST /api/orders/link-guest-orders
 orderApi.createSteadfastOrder(id)    → POST /api/orders/:id/steadfast  (Admin)
 ```
 
-**সংযুক্ত Server:** `server/src/features/order/order.controller.ts`
+**Connected Server:** `server/src/features/order/order.controller.ts`
 
 ---
 
-## ৭. Server — ফোল্ডার ও দায়িত্ব
+## 7. Server — Folders and Responsibilities
 
 ```
 server/src/
-├── app.ts                  # Express setup + সব route mount
+├── app.ts                  # Express setup + all route mounts
 ├── server.ts               # Standalone server (PORT 5000)
 ├── config/
 │   ├── database.ts         # MongoDB connection
@@ -233,29 +233,29 @@ server/src/
 │   ├── product/
 │   ├── order/
 │   ├── cart/
-│   └── ... (১৭টি feature)
+│   └── ... (17 features)
 └── utils/
     ├── jwt.ts              # Token generate/verify
     ├── email.ts            # Verification email
     └── cloudinary.ts       # Image upload
 ```
 
-**প্রতিটি feature-এর প্যাটার্ন:**
+**Pattern for each feature:**
 ```
 features/product/
-├── product.route.ts      # URL + middleware define
-├── product.controller.ts # Request handle, validation
-├── product.model.ts      # Database query
+├── product.route.ts      # URL + middleware definition
+├── product.controller.ts # Request handling, validation
+├── product.model.ts      # Database queries
 └── product.schema.ts     # Mongoose schema
 ```
 
 ---
 
-## ৮. Server কোড — মূল অংশ
+## 8. Server Code — Core Parts
 
-### ৮.১ Route Mounting (`server/src/app.ts`)
+### 8.1 Route Mounting (`server/src/app.ts`)
 
-সব API `/api` prefix-এ mount:
+All APIs mounted under `/api` prefix:
 
 ```typescript
 // server/src/app.ts
@@ -271,11 +271,11 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/promos', promoRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/reviews', reviewRoutes);
-// ... আরও
+// ... more
 ```
 
-| Route Prefix | Client API ফাইল | মূল কাজ |
-|-------------|-----------------|---------|
+| Route Prefix | Client API File | Main Purpose |
+|-------------|-----------------|--------------|
 | `/api/auth` | `lib/authApi.ts` | Login, register, OAuth |
 | `/api/products` | `lib/api.ts` | Product CRUD |
 | `/api/cart` | `lib/api.ts` | Session-based cart |
@@ -284,7 +284,7 @@ app.use('/api/reviews', reviewRoutes);
 
 ---
 
-### ৮.২ Auth Routes (`features/auth/auth.route.ts`)
+### 8.2 Auth Routes (`features/auth/auth.route.ts`)
 
 ```typescript
 // Public routes
@@ -301,10 +301,10 @@ router.put('/profile', authenticateUser, upload.single('photo'), AuthController.
 
 ---
 
-### ৮.৩ Auth Middleware (`middleware/auth.middleware.ts`)
+### 8.3 Auth Middleware (`middleware/auth.middleware.ts`)
 
 ```typescript
-// Cookie থেকে accessToken নেয়
+// Reads accessToken from cookie
 export const authenticateUser = async (req, res, next) => {
   const token = req.cookies?.accessToken || req.headers.authorization?.replace('Bearer ', '');
   const decoded = verifyAccessToken(token);
@@ -313,26 +313,26 @@ export const authenticateUser = async (req, res, next) => {
   next();
 };
 
-export const requireAdmin = ...  // role === 'ADMIN' চেক
-export const optionalAuth = ...  // logged in থাকলে user attach, না থাকলে চলতে দেয়
+export const requireAdmin = ...  // checks role === 'ADMIN'
+export const optionalAuth = ...  // attaches user if logged in, otherwise continues
 ```
 
-| Middleware | কোথায় ব্যবহার | Client-এর কোন কল |
-|-----------|---------------|-----------------|
+| Middleware | Used On | Client Call |
+|-----------|---------|-------------|
 | `authenticateUser` | Profile, my-orders | `authApi.getProfile()` |
 | `requireAdmin` | Admin CRUD routes | Admin panel API calls |
-| `optionalAuth` | Product detail, create order | Guest + logged-in দুটোই |
+| `optionalAuth` | Product detail, create order | Guest + logged-in both |
 
 ---
 
-### ৮.৪ Order Create (`features/order/order.controller.ts`)
+### 8.4 Order Create (`features/order/order.controller.ts`)
 
 ```typescript
 static create = asyncHandler(async (req: AuthRequest, res: Response) => {
   const orderData: CreateOrderDto = req.body;
-  const userId = req.user?.id || null;  // Guest হলে null
+  const userId = req.user?.id || null;  // null for guests
 
-  // Stock validate
+  // Stock validation
   for (const item of orderData.items) {
     const product = await ProductModel.findById(item.product);
     // size/stock check...
@@ -343,43 +343,43 @@ static create = asyncHandler(async (req: AuthRequest, res: Response) => {
 });
 ```
 
-**Client থেকে কল:** `checkout/page.tsx` → `orderApi.createOrder()` → `POST /api/orders`
+**Called from client:** `checkout/page.tsx` → `orderApi.createOrder()` → `POST /api/orders`
 
 ---
 
-## ৯. সম্পূর্ণ Auth Flow
+## 9. Complete Auth Flow
 
 ```
-১. Register
+1. Register
    Client: register/page.tsx → authApi.register()
-   Server: POST /api/auth/register → email verification পাঠায়
+   Server: POST /api/auth/register → sends email verification
 
-২. Email Verify
+2. Email Verify
    Client: verify-email/page.tsx → authApi.verifyEmail(token)
    Server: POST /api/auth/verify-email
 
-৩. Login
+3. Login
    Client: login/page.tsx → authApi.login()
-   Server: POST /api/auth/login → accessToken + refreshToken cookie set
-   Client: UserContext.refreshUser() → profile load
+   Server: POST /api/auth/login → sets accessToken + refreshToken cookies
+   Client: UserContext.refreshUser() → loads profile
 
-৪. Token Expire (401)
+4. Token Expire (401)
    Client: apiRequest() → authApi.refreshToken() → retry
-   Server: POST /api/auth/refresh-token → নতুন accessToken cookie
+   Server: POST /api/auth/refresh-token → new accessToken cookie
 
-৫. Google OAuth
+5. Google OAuth
    Client: "Login with Google" → window.location = /api/auth/google
-   Server: Google → callback → cookie set → redirect /auth/callback
+   Server: Google → callback → sets cookies → redirect /auth/callback
    Client: auth/callback/page.tsx → refreshUser()
 
-৬. Admin Access
+6. Admin Access
    Client: admin/layout.tsx → getProfile() → role === ADMIN?
-   Server: requireAdmin middleware সব admin route-এ
+   Server: requireAdmin middleware on all admin routes
 ```
 
 ---
 
-## ৯.১ Checkout Flow (Guest + Logged-in)
+## 9.1 Checkout Flow (Guest + Logged-in)
 
 ```
 Cart Page                    Checkout Page                 Server
@@ -397,7 +397,7 @@ cart/page.tsx        →       checkout/page.tsx
 
 ---
 
-## ১০. API Endpoint সংক্ষিপ্ত তালিকা
+## 10. API Endpoint Summary
 
 ### Auth — `/api/auth`
 | Method | Endpoint | Auth | Client |
@@ -437,14 +437,14 @@ cart/page.tsx        →       checkout/page.tsx
 | GET | `/dashboard/stats` | Admin dashboard |
 | GET | `/analytics` | Admin analytics page |
 
-*(সম্পূর্ণ endpoint তালিকা server `GET /` response-এও পাওয়া যায়)*
+*(Full endpoint list also available in server `GET /` response)*
 
 ---
 
-## ১১. Feature Module ম্যাপিং (Client ↔ Server)
+## 11. Feature Module Mapping (Client ↔ Server)
 
-| Feature | Client ফাইল/কম্পোনেন্ট | Server Feature | MongoDB Model |
-|---------|------------------------|----------------|---------------|
+| Feature | Client File/Component | Server Feature | MongoDB Model |
+|---------|----------------------|----------------|---------------|
 | **Auth** | `authApi.ts`, `UserContext`, login/register pages | `features/auth/` | User, Admin |
 | **Products** | `ProductGrid`, `ProductDetails`, admin products | `features/product/` | Product |
 | **Categories** | `CategoryShowcase`, `LeftSidebar` | `features/category/` | Category |
@@ -460,7 +460,7 @@ cart/page.tsx        →       checkout/page.tsx
 
 ---
 
-## ১২. Environment Variables
+## 12. Environment Variables
 
 ### Client (`.env.local`)
 ```
@@ -481,7 +481,7 @@ STEADFAST_API_KEY=...
 
 ---
 
-## ১৩. চালানোর নিয়ম (Local)
+## 13. How to Run Locally
 
 ```bash
 # Terminal 1 — Server
@@ -497,15 +497,15 @@ npm run dev          # → http://localhost:3000
 
 ---
 
-## ১৪. গুরুত্বপূর্ণ ফাইল রেফারেন্স
+## 14. Key File Reference
 
-| ফাইল | ভূমিকা |
-|------|--------|
-| `client/lib/api.ts` | মূল HTTP client, caching, token refresh |
-| `client/lib/authApi.ts` | সব auth endpoint |
-| `client/contexts/UserContext.tsx` | গ্লোবাল user state |
+| File | Role |
+|------|------|
+| `client/lib/api.ts` | Core HTTP client, caching, token refresh |
+| `client/lib/authApi.ts` | All auth endpoints |
+| `client/contexts/UserContext.tsx` | Global user state |
 | `client/app/admin/layout.tsx` | Admin route protection |
-| `client/app/(public)/page.tsx` | হোম পেজ composition |
+| `client/app/(public)/page.tsx` | Home page composition |
 | `server/src/app.ts` | Express app + route mounting |
 | `server/src/middleware/auth.middleware.ts` | JWT verification |
 | `server/src/features/auth/auth.route.ts` | Auth endpoints |
@@ -514,15 +514,150 @@ npm run dev          # → http://localhost:3000
 
 ---
 
-## ১৫. আর্কিটেকচার সিদ্ধান্ত (জানা দরকার)
+## 15. Code Examples
 
-1. **আলাদা git repo** — client ও server আলাদা deploy
-2. **Cookie-based JWT** — localStorage-এ token নেই, শুধু `userSession` flag
-3. **Guest commerce** — login ছাড়াই cart/checkout; login-এ অর্ডার link
-4. **Feature-sliced server** — প্রতিটি domain আলাদা folder (route → controller → model)
-5. **বাংলাদেশ-স্পেসিফিক** — Dhaka/outside shipping, Steadfast courier, বাংলা font
-6. **Client-side cache** — GET response `lib/cache.ts`-এ cache; mutation-এ invalidate
+Real code from the project — shows TypeScript patterns used across client and server.
+
+### Example 1 — API client with auto token refresh (`client/lib/api.ts`)
+
+```typescript
+export async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  retryCount = 0
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    credentials: 'include', // Include cookies for authentication
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  // Handle 401 errors - try to refresh token
+  if (response.status === 401 && retryCount === 0) {
+    try {
+      await refreshAccessToken();
+      return apiRequest<T>(endpoint, options, retryCount + 1);
+    } catch (refreshError) {
+      // Refresh failed - let the error handling below process it
+    }
+  }
+  // ...
+}
+```
+
+### Example 2 — Guest order linking on login (`client/contexts/UserContext.tsx`)
+
+```typescript
+const refreshUser = async (retryCount = 0) => {
+  try {
+    const userData = await authApi.getProfile();
+    setUser(userData);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userSession', 'true');
+    }
+
+    // Link guest orders if user just logged in
+    const guestOrderIds = getGuestOrders();
+    if (guestOrderIds.length > 0) {
+      try {
+        await orderApi.linkGuestOrders(guestOrderIds);
+        clearGuestOrders();
+      } catch (error) {
+        console.error('Error linking guest orders:', error);
+        // Don't fail the login if linking fails
+      }
+    }
+  } catch (error: any) {
+    // ...
+  }
+};
+```
+
+### Example 3 — Auth middleware with cookie + Bearer fallback (`server/src/middleware/auth.middleware.ts`)
+
+```typescript
+export const authenticateUser = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const token = req.cookies?.accessToken || req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      throw new AppError('Authentication required', 401);
+    }
+
+    const decoded = verifyAccessToken(token);
+    const user = await UserModel.findById(decoded.id);
+
+    if (!user) {
+      const admin = await AdminModel.findById(decoded.id);
+      if (!admin || !admin.isActive) {
+        throw new AppError('User not found', 401);
+      }
+    }
+
+    req.user = decoded;
+    next();
+  } catch (error: any) {
+    // ...
+  }
+};
+```
+
+### Example 4 — Order creation with stock validation (`server/src/features/order/order.controller.ts`)
+
+```typescript
+static create = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const orderData: CreateOrderDto = req.body;
+
+  if (!orderData.user || !orderData.items || orderData.items.length === 0) {
+    throw new AppError('User information and items are required', 400);
+  }
+
+  if (orderData.promoCode && !req.user) {
+    throw new AppError('Promo codes can only be used by logged-in users', 403);
+  }
+
+  const userId = req.user?.id || null;
+
+  for (const item of orderData.items) {
+    const product = await ProductModel.findById(item.product);
+    if (!product) {
+      throw new AppError(`Product ${item.product} not found`, 404);
+    }
+
+    if (item.size) {
+      const sizeStock = product.sizes.find((s) => s.size === item.size);
+      if (!sizeStock || sizeStock.stock < item.quantity) {
+        throw new AppError(`Insufficient stock for size ${item.size}`, 400);
+      }
+    } else if (product.stock < item.quantity) {
+      throw new AppError(`Insufficient stock for product ${product.name}`, 400);
+    }
+  }
+
+  const order = await OrderModel.create(orderData, userId);
+  return ResponseHandler.success(res, order, 'Order created successfully', 201);
+});
+```
 
 ---
 
-*শেষ আপডেট: জুলাই ২০২৬ | SplasBD E-commerce Platform*
+## 16. Architecture Decisions (Good to Know)
+
+1. **Separate git repos** — client and server deployed independently
+2. **Cookie-based JWT** — no token in localStorage, only `userSession` flag
+3. **Guest commerce** — cart/checkout without login; orders linked on login
+4. **Feature-sliced server** — each domain in its own folder (route → controller → model)
+5. **Bangladesh-specific** — Dhaka/outside shipping, Steadfast courier, Bengali font
+6. **Client-side cache** — GET responses cached in `lib/cache.ts`; invalidated on mutation
+
+---
+
+*Last updated: July 2026 | SplasBD E-commerce Platform*

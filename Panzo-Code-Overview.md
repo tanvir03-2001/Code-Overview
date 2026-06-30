@@ -2,32 +2,32 @@
 
 [← Table of Contents](./README.md)
 
-> **উদ্দেশ্য:** Panzo E-commerce প্রজেক্টের পুরো আর্কিটেকচার, পেজ, ফাংশন, client/admin/server কোডের মূল অংশ এবং তাদের মধ্যে সম্পর্ক ব্যাখ্যা করে। Git repo শেয়ার না করলেও এই ফাইল দিয়ে প্রজেক্ট বুঝতে সাহায্য করবে।
+> **Purpose:** This document explains the full architecture of the Panzo E-commerce project — pages, functions, core client/admin/server code, and how they connect. Use this file to understand the project without sharing the git repository.
 
 ---
 
-## ১. প্রজেক্ট কাঠামো (High-Level)
+## 1. Project Structure (High-Level)
 
 ```
 Panzo/
-├── client/          → Next.js 16 স্টোরফ্রন্ট (React 19, port 3000)
-├── admin/           → Vite + React অ্যাডমিন প্যানেল (port 5173)
+├── client/          → Next.js 16 storefront (React 19, port 3000)
+├── admin/           → Vite + React admin panel (port 5173)
 ├── server/          → Express 4 REST API (port 5000)
-└── CASE_STUDY.md    → বিদ্যমান architecture doc (Bengali)
+└── CASE_STUDY.md    → Existing architecture doc (Bengali)
 ```
 
-| অংশ | টেকনোলজি | পোর্ট (লোকাল) |
-|-----|----------|---------------|
+| Layer | Technology | Port (local) |
+|-------|------------|--------------|
 | **Client** | Next.js App Router, Tailwind CSS 4, Swiper | `localhost:3000` |
 | **Admin** | Vite 7, React Router 7, Radix UI, Recharts | `localhost:5173` |
 | **Server** | Express 4, Mongoose 8, JWT, Passport OAuth | `localhost:5000` |
 | **Database** | MongoDB (`panzo-ecommerce`) | — |
 
-> **নোট:** `client/`, `admin/`, `server/` — তিনটোই **আলাদা git repository**। SplasBD-র মতো client-এ admin embedded নেই; admin আলাদা Vite app।
+> **Note:** `client/`, `admin/`, and `server/` are **three separate git repositories**. Unlike SplasBD, admin is not embedded in the client — it is a standalone Vite app.
 
 ---
 
-## ২. Client ↔ Admin ↔ Server কিভাবে যুক্ত
+## 2. How Client ↔ Admin ↔ Server Connect
 
 ```
 ┌─────────────────────┐     ┌─────────────────────┐
@@ -52,21 +52,21 @@ Panzo/
           └───────────────────────┘
 ```
 
-**মূল নিয়ম:**
-- Client ও Admin দুটোই সরাসরি Express API-তে কল করে — BFF layer নেই
+**Key rules:**
+- Both Client and Admin call the Express API directly — no BFF layer
 - Base URL: `http://localhost:5000/api/v1`
-- Auth: `httpOnly` cookie (`accessToken`, `refreshToken`) — `credentials: 'include'`
-- Guest user কার্ট ও checkout করতে পারে
-- Admin panel permission-based route guard ব্যবহার করে (RBAC)
+- Auth: `httpOnly` cookies (`accessToken`, `refreshToken`) via `credentials: 'include'`
+- Guest users can use cart and checkout
+- Admin panel uses permission-based route guards (RBAC)
 
 ---
 
-## ৩. Client — ফোল্ডার ও দায়িত্ব
+## 3. Client — Folders and Responsibilities
 
 ```
 client/src/
-├── app/                    # Next.js App Router পেজ
-│   ├── page.tsx            # হোম
+├── app/                    # Next.js App Router pages
+│   ├── page.tsx            # Home
 │   ├── products/, product/[slug]/
 │   ├── category/[slug]/, brand/[slug]/
 │   ├── cart/, checkout/, order-success/
@@ -80,7 +80,7 @@ client/src/
 │   ├── product/            # ProductDetailsClient, gallery
 │   └── loading/            # Skeleton loaders
 ├── utils/
-│   └── api.ts              # মূল API client (ApiClient class)
+│   └── api.ts              # Core API client (ApiClient class)
 ├── hooks/                  # useInfiniteProducts, useSearch
 ├── actions/
 │   └── navActions.ts       # Server Actions (cached nav data)
@@ -89,32 +89,32 @@ client/src/
 
 ---
 
-## ৪. Client পেজ — URL ও ফাইল ম্যাপিং
+## 4. Client Pages — URL and File Mapping
 
-| URL | ফাইল | কাজ |
-|-----|------|-----|
-| `/` | `app/page.tsx` | হোম — hero carousel, categories, product grids |
-| `/products` | `app/products/page.tsx` | প্রোডাক্ট লিস্ট + ফিল্টার |
-| `/product/[slug]` | `app/product/[slug]/page.tsx` | প্রোডাক্ট ডিটেইল (color/size variants) |
-| `/category/[slug]` | `app/category/[slug]/page.tsx` | ক্যাটাগরি অনুযায়ী প্রোডাক্ট |
-| `/brand/[slug]` | `app/brand/[slug]/page.tsx` | ব্র্যান্ড অনুযায়ী প্রোডাক্ট |
-| `/categories` | `app/categories/page.tsx` | সব ক্যাটাগরি |
-| `/search` | `app/search/page.tsx` | সার্চ + autocomplete |
-| `/cart` | `app/cart/page.tsx` | শপিং কার্ট |
-| `/checkout` | `app/checkout/page.tsx` | চেকআউট (BD address, COD) |
-| `/order-success` | `app/order-success/page.tsx` | অর্ডার কনফার্মেশন |
-| `/orders` | `app/orders/page.tsx` | অর্ডার হিস্ট্রি |
-| `/orders/[orderId]` | `app/orders/[orderId]/page.tsx` | অর্ডার ডিটেইল |
-| `/wishlist` | `app/wishlist/page.tsx` | সেভ করা প্রোডাক্ট |
-| `/account` | `app/account/page.tsx` | প্রোফাইল ও ঠিকানা |
+| URL | File | Purpose |
+|-----|------|---------|
+| `/` | `app/page.tsx` | Home — hero carousel, categories, product grids |
+| `/products` | `app/products/page.tsx` | Product list + filters |
+| `/product/[slug]` | `app/product/[slug]/page.tsx` | Product detail (color/size variants) |
+| `/category/[slug]` | `app/category/[slug]/page.tsx` | Products by category |
+| `/brand/[slug]` | `app/brand/[slug]/page.tsx` | Products by brand |
+| `/categories` | `app/categories/page.tsx` | All categories |
+| `/search` | `app/search/page.tsx` | Search + autocomplete |
+| `/cart` | `app/cart/page.tsx` | Shopping cart |
+| `/checkout` | `app/checkout/page.tsx` | Checkout (BD address, COD) |
+| `/order-success` | `app/order-success/page.tsx` | Order confirmation |
+| `/orders` | `app/orders/page.tsx` | Order history |
+| `/orders/[orderId]` | `app/orders/[orderId]/page.tsx` | Order detail |
+| `/wishlist` | `app/wishlist/page.tsx` | Saved products |
+| `/account` | `app/account/page.tsx` | Profile and addresses |
 | `/login`, `/signup` | `app/login/`, `app/signup/` | Auth |
-| `/verify-email` | `app/verify-email/page.tsx` | ইমেইল verification |
+| `/verify-email` | `app/verify-email/page.tsx` | Email verification |
 
 ---
 
-## ৫. Admin পেজ — URL ও ফাইল ম্যাপিং
+## 5. Admin Pages — URL and File Mapping
 
-Admin আলাদা Vite app — React Router দিয়ে route define:
+Admin is a separate Vite app — routes defined with React Router:
 
 | URL | Page | Permission |
 |-----|------|------------|
@@ -132,7 +132,7 @@ Admin আলাদা Vite app — React Router দিয়ে route define:
 | `/analytics`, `/analytics/visitor/:identifier` | Analytics | Role-based |
 | `/promoter-products` | Promoter links | Promoter role |
 
-**Admin সুরক্ষা:** `PermissionRoute` component — প্রতিটি route-এ required permission check:
+**Admin protection:** `PermissionRoute` component — checks required permission on each route:
 
 ```tsx
 // admin/src/App.tsx
@@ -145,11 +145,11 @@ Admin আলাদা Vite app — React Router দিয়ে route define:
 
 ---
 
-## ৬. Client কোড — মূল অংশ
+## 6. Client Code — Core Parts
 
-### ৬.১ API Client (`client/src/utils/api.ts`)
+### 6.1 API Client (`client/src/utils/api.ts`)
 
-সব API কলের কেন্দ্রবিন্দু — `ApiClient` class:
+Central hub for all API calls — `ApiClient` class:
 
 ```typescript
 // client/src/utils/api.ts
@@ -177,9 +177,9 @@ export const behaviorApi = { trackBehavior };  // sendBeacon for analytics
 
 ---
 
-### ৬.২ ShopProvider (`components/ShopProvider.tsx`)
+### 6.2 ShopProvider (`components/ShopProvider.tsx`)
 
-Redux ছাড়াই React Context + localStorage দিয়ে state manage:
+State managed with React Context + localStorage — no Redux:
 
 ```typescript
 // ShopProvider — cart, wishlist, user, addresses
@@ -187,18 +187,18 @@ Redux ছাড়াই React Context + localStorage দিয়ে state mana
 // Cart add/remove, wishlist toggle, user login state
 ```
 
-| State | Storage | Server sync |
+| State | Storage | Server Sync |
 |-------|---------|-------------|
-| Cart | localStorage | Checkout-এ `POST /api/v1/orders` |
+| Cart | localStorage | `POST /api/v1/orders` on checkout |
 | Wishlist | localStorage | Client-only |
 | User | Cookie + context | `GET /api/v1/users/profile` |
 | Addresses | localStorage | Account page |
 
 ---
 
-### ৬.৩ Server Actions (`actions/navActions.ts`)
+### 6.3 Server Actions (`actions/navActions.ts`)
 
-Next.js Server Actions + `unstable_cache` দিয়ে nav data cache:
+Next.js Server Actions + `unstable_cache` for nav data:
 
 ```typescript
 'use server';
@@ -210,17 +210,17 @@ export async function getNavData() {
     ['nav-categories'],
     { revalidate: 900, tags: ['nav-categories'] }
   );
-  // categories + brands return
+  // returns categories + brands
 }
 ```
 
-**সংযুক্ত Server:** `GET /api/v1/categories`, `GET /api/v1/brands`
+**Connected Server:** `GET /api/v1/categories`, `GET /api/v1/brands`
 
 ---
 
-### ৬.৪ Analytics Tracking (`utils/analyticsTracking.ts`)
+### 6.4 Analytics Tracking (`utils/analyticsTracking.ts`)
 
-Fire-and-forget tracking — UX block করে না:
+Fire-and-forget tracking — does not block UX:
 
 ```typescript
 // behaviorApi.trackBehavior() → navigator.sendBeacon()
@@ -230,11 +230,11 @@ Fire-and-forget tracking — UX block করে না:
 
 ---
 
-## ৭. Admin কোড — মূল অংশ
+## 7. Admin Code — Core Parts
 
-### ৭.১ Admin API Client (`admin/src/lib/api.ts`)
+### 7.1 Admin API Client (`admin/src/lib/api.ts`)
 
-Client-এর মতো pattern + **401 → auto refresh → retry**:
+Same pattern as client + **401 → auto refresh → retry**:
 
 ```typescript
 // admin/src/lib/api.ts
@@ -242,7 +242,7 @@ Client-এর মতো pattern + **401 → auto refresh → retry**:
 // VITE_API_URL = http://localhost:5000/api/v1
 ```
 
-### ৭.২ Auth & Permission Context
+### 7.2 Auth & Permission Context
 
 ```
 admin/src/contexts/
@@ -256,13 +256,13 @@ admin/src/components/
 
 ---
 
-## ৮. Server — ফোল্ডার ও দায়িত্ব
+## 8. Server — Folders and Responsibilities
 
 ```
 server/src/
 ├── app.ts                  # Express setup + middleware
 ├── server.ts               # Bootstrap: DB connect, super user init
-├── routes/index.ts         # সব route registry
+├── routes/index.ts         # All route registry
 ├── config/
 │   ├── env.ts              # Centralized env config
 │   ├── db.ts               # MongoDB connection
@@ -289,20 +289,20 @@ server/src/
 └── utils/                  # jwt, email, cloudinary, apiResponse
 ```
 
-**প্রতিটি feature-এর প্যাটার্ন:**
+**Pattern for each feature:**
 ```
 features/product/
 ├── product.route.ts      # URL + middleware
-├── product.controller.ts # Request handle
+├── product.controller.ts # Request handling
 ├── product.service.ts    # Business logic
 └── product.model.ts      # Mongoose model
 ```
 
 ---
 
-## ৯. Server কোড — মূল অংশ
+## 9. Server Code — Core Parts
 
-### ৯.১ Route Mounting (`server/src/routes/index.ts`)
+### 9.1 Route Mounting (`server/src/routes/index.ts`)
 
 ```typescript
 // server/src/app.ts
@@ -328,7 +328,7 @@ router.use('/upload', uploadRoutes);
 
 ---
 
-### ৯.২ Feature Controller Pattern
+### 9.2 Feature Controller Pattern
 
 ```typescript
 // features/product/product.controller.ts
@@ -340,7 +340,7 @@ export const getProducts = asyncHandler(async (req, res) => {
 
 ---
 
-### ৯.৩ Recommendation Engine
+### 9.3 Recommendation Engine
 
 ```typescript
 // algorithm/product_view_algorithm/recommendationEngine.ts
@@ -350,7 +350,7 @@ export const getProducts = asyncHandler(async (req, res) => {
 
 ---
 
-## ১০. API Endpoint সংক্ষিপ্ত তালিকা
+## 10. API Endpoint Summary
 
 **Base:** `/api/v1`
 
@@ -379,7 +379,7 @@ export const getProducts = asyncHandler(async (req, res) => {
 |--------|----------|------|--------|
 | POST | `/` | Optional | Checkout (guest OK) |
 | GET | `/my-orders` | Auth | Orders page |
-| POST | `/sync-guest-orders` | Auth | Login-এ guest order link |
+| POST | `/sync-guest-orders` | Auth | Link guest orders on login |
 | GET | `/guest-orders?email=&phone=` | Public | Guest order lookup |
 
 ### Analytics — `/api/v1/analytics`
@@ -398,7 +398,7 @@ export const getProducts = asyncHandler(async (req, res) => {
 
 ---
 
-## ১১. Feature Module ম্যাপিং
+## 11. Feature Module Mapping
 
 | Feature | Client | Admin | Server |
 |---------|--------|-------|--------|
@@ -416,35 +416,35 @@ export const getProducts = asyncHandler(async (req, res) => {
 
 ---
 
-## ১২. Auth Flow
+## 12. Auth Flow
 
 ```
-১. Signup
+1. Signup
    Client: signup/page.tsx → userApi.signup()
    Server: POST /api/v1/users/signup → verification email
 
-২. Login
+2. Login
    Client: login/page.tsx → userApi.login()
    Server: POST /api/v1/users/login → JWT cookies set
    Client: ShopProvider user state update
 
-৩. Google/Facebook OAuth
+3. Google/Facebook OAuth
    Client: redirect → /api/v1/users/auth/google
    Server: Passport OAuth → callback → cookies → redirect client
 
-৪. Admin Login
+4. Admin Login
    Admin: login page → same /users/login endpoint
    Admin: AuthContext → PermissionContext load permissions
    Admin: PermissionRoute guards each page
 
-৫. Token Refresh (401)
+5. Token Refresh (401)
    Admin api.ts: auto POST /users/refresh-token → retry
    Client: similar pattern in ApiClient
 ```
 
 ---
 
-## ১৩. Checkout Flow
+## 13. Checkout Flow
 
 ```
 Cart (ShopProvider)     Checkout Page              Server
@@ -456,12 +456,12 @@ cart/page.tsx    →      checkout/page.tsx
   │                        │
   └────────────────────────┼──→ order-success/page.tsx
                            │
-                           └── Guest order → login-এ sync-guest-orders
+                           └── Guest order → sync-guest-orders on login
 ```
 
 ---
 
-## ১৪. Environment Variables
+## 14. Environment Variables
 
 ### Client (`.env.local`)
 ```
@@ -490,7 +490,7 @@ SUPER_USER_PASSWORD=...
 
 ---
 
-## ১৫. চালানোর নিয়ম (Local)
+## 15. How to Run Locally
 
 ```bash
 # Terminal 1 — Server
@@ -511,11 +511,11 @@ npm run dev          # → http://localhost:5173
 
 ---
 
-## ১৬. গুরুত্বপূর্ণ ফাইল রেফারেন্স
+## 16. Key File Reference
 
-| ফাইল | ভূমিকা |
-|------|--------|
-| `client/src/utils/api.ts` | মূল API client + domain APIs |
+| File | Role |
+|------|------|
+| `client/src/utils/api.ts` | Core API client + domain APIs |
 | `client/src/components/ShopProvider.tsx` | Cart, wishlist, user state |
 | `client/src/utils/analyticsTracking.ts` | Client-side tracking |
 | `client/src/actions/navActions.ts` | Cached server actions |
@@ -531,11 +531,11 @@ npm run dev          # → http://localhost:5173
 
 ---
 
-## ১৭. SplasBD vs Panzo — মূল পার্থক্য
+## 17. SplasBD vs Panzo — Key Differences
 
-| বিষয় | SplasBD | Panzo |
+| Topic | SplasBD | Panzo |
 |-------|---------|-------|
-| Admin | Next.js-এ embedded (`/admin/*`) | আলাদা Vite app (`:5173`) |
+| Admin | Embedded in Next.js (`/admin/*`) | Separate Vite app (`:5173`) |
 | API prefix | `/api` | `/api/v1` |
 | Permission | Simple admin role check | Full RBAC + permission strings |
 | Analytics | Basic admin analytics | Full tracking + recommendation engine |
@@ -546,16 +546,176 @@ npm run dev          # → http://localhost:5173
 
 ---
 
-## ১৮. আর্কিটেকচার সিদ্ধান্ত
+## 18. Code Examples
 
-1. **তিনটি আলাদা app** — client, admin, server আলাদা deploy
+Real code from the project — shows TypeScript patterns used across client, admin, and server.
+
+### Example 1 — Reusable API client class (`client/src/utils/api.ts`)
+
+```typescript
+class ApiClient {
+  private baseURL: string;
+
+  constructor(baseURL: string) {
+    this.baseURL = baseURL;
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: NextFetchRequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
+    const isServer = typeof window === 'undefined';
+
+    const config: NextFetchRequestInit = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      credentials: 'include', // Include cookies for authentication
+      ...(isServer && {
+        ...(options.next?.revalidate !== undefined ? {
+          next: options.next,
+          cache: options.cache || 'force-cache',
+        } : {
+          cache: options.cache || 'no-store',
+          next: options.next || { revalidate: false },
+        }),
+      }),
+      ...(!isServer && {
+        cache: 'no-store',
+      }),
+    };
+
+    const response = await fetch(url, config);
+    const data: ApiResponse<T> = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(data.message || `HTTP error! status: ${response.status}`);
+      (error as any).response = { data };
+      (error as any).status = response.status;
+      throw error;
+    }
+
+    return data.data as T;
+  }
+}
+```
+
+### Example 2 — Server Actions with Next.js cache (`client/src/actions/navActions.ts`)
+
+```typescript
+'use server';
+
+import { unstable_cache } from 'next/cache';
+import { categoryApi, brandApi, type Category, type Brand } from '@/utils/api';
+
+export async function getNavData(): Promise<{
+  categories: Category[];
+  brands: Brand[];
+}> {
+  const getCachedCategories = unstable_cache(
+    async () => {
+      return await categoryApi.getAllCategories();
+    },
+    ['nav-categories'],
+    {
+      revalidate: 900, // 15 minutes
+      tags: ['nav-categories'],
+    }
+  );
+
+  const [categories, brands] = await Promise.all([
+    getCachedCategories(),
+    getCachedBrands(),
+  ]);
+
+  return { categories, brands };
+}
+```
+
+### Example 3 — Permission-based route guard (`admin/src/components/PermissionRoute.tsx`)
+
+```typescript
+export function PermissionRoute({
+  children,
+  requiredPermission,
+  fallback
+}: PermissionRouteProps) {
+  const { hasPermission, loading } = usePermissions();
+  const { user } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading permissions...</div>
+      </div>
+    );
+  }
+
+  let hasAccess = hasPermission(requiredPermission);
+
+  // Support both new format (dashboard.view) and old format (view_dashboard)
+  if (!hasAccess) {
+    if (requiredPermission.includes('.')) {
+      const [module, action] = requiredPermission.split('.');
+      hasAccess = hasPermission(`${action}_${module}`);
+    } else if (requiredPermission.includes('_')) {
+      const parts = requiredPermission.split('_');
+      if (parts.length >= 2) {
+        const action = parts[0];
+        const module = parts.slice(1).join('_');
+        hasAccess = hasPermission(`${module}.${action}`);
+      }
+    }
+  }
+
+  if (!hasAccess) {
+    // Show access denied UI...
+  }
+
+  return <>{children}</>;
+}
+```
+
+### Example 4 — Fire-and-forget analytics tracking (`client/src/utils/api.ts`)
+
+```typescript
+export const behaviorApi = {
+  trackBehavior: async (payload: TrackBehaviorPayload): Promise<void> => {
+    // Use sendBeacon for non-blocking request (fire-and-forget)
+    if (typeof window !== 'undefined' && navigator.sendBeacon) {
+      const url = `${API_BASE_URL}/behavior/track`;
+      const data = JSON.stringify(payload);
+      const blob = new Blob([data], { type: 'application/json' });
+      navigator.sendBeacon(url, blob);
+    } else {
+      fetch(`${API_BASE_URL}/behavior/track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {
+        // Silently fail - tracking should not affect user experience
+      });
+    }
+  },
+};
+```
+
+---
+
+## 19. Architecture Decisions
+
+1. **Three separate apps** — client, admin, server deployed independently
 2. **Permission-based admin** — RBAC + legacy permission dual system
-3. **Recommendation engine** — user behavior scoring থেকে personalized products
-4. **Fire-and-forget analytics** — `sendBeacon` দিয়ে UX block না করা
-5. **Guest commerce** — login ছাড়াই checkout; login-এ order sync
-6. **Server Actions caching** — Next.js `unstable_cache` nav data-র জন্য
+3. **Recommendation engine** — personalized products from user behavior scoring
+4. **Fire-and-forget analytics** — `sendBeacon` to avoid blocking UX
+5. **Guest commerce** — checkout without login; order sync on login
+6. **Server Actions caching** — Next.js `unstable_cache` for nav data
 7. **Bangladesh-specific** — BD address cascade, COD payment
 
 ---
 
-*শেষ আপডেট: জুলাই ২০২৬ | Panzo E-commerce Platform*
+*Last updated: July 2026 | Panzo E-commerce Platform*
